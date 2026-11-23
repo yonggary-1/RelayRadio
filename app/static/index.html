@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RelayRadio">
+<title>RelayRadio</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --card: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dc;
+    --accent: #d9480f; --accent-text: #ffffff; --ok: #2b8a3e; --bad: #c92a2a; --chip: #f1f1ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514; --card: #1f1f1d; --text: #ecece8; --muted: #9a9a93; --line: #33332f;
+      --accent: #ff7a3d; --accent-text: #151514; --ok: #69db7c; --bad: #ff8787; --chip: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 60px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .station { border-top: 1px solid var(--line); padding: 12px 0; }
+  .station:first-of-type { border-top: 0; padding-top: 0; }
+  .station .name { font-weight: 600; }
+  .now { font-size: 14px; margin: 4px 0; word-break: break-all; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--line); margin-right: 6px; }
+  .dot.on { background: var(--ok); }
+  .error { color: var(--bad); font-size: 13px; word-break: break-all; }
+  code, .url { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip);
+               padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+  input[type=text], input[type=password], input[type=url] {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 15px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
+  label.check { display: flex; gap: 6px; align-items: center; color: var(--text); font-size: 14px; }
+  button { border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 10px;
+           padding: 7px 12px; font-size: 14px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+  .hidden { display: none !important; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg);
+           padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  #toast.show { opacity: 1; }
+  details summary { cursor: pointer; font-weight: 600; }
+  ol { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  pre { white-space: pre-wrap; font-size: 12px; background: var(--chip); padding: 8px; border-radius: 8px; max-height: 200px; overflow: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Relay<span>Radio</span></h1>
+    <div class="row hidden" id="who"><span class="muted" id="whoName"></span><button id="logoutBtn">로그아웃</button></div>
+  </header>
+
+  <!-- login -->
+  <section class="card hidden" id="loginView">
+    <h2>로그인</h2>
+    <form id="loginForm">
+      <label>아이디</label><input type="text" name="username" autocomplete="username" autocapitalize="off" required>
+      <label>비밀번호</label><input type="password" name="password" autocomplete="current-password" required>
+      <div class="row" style="margin-top:12px"><button class="primary">로그인</button></div>
+    </form>
+  </section>
+
+  <div class="hidden" id="mainView">
+    <!-- personal -->
+    <section class="card">
+      <h2>내 스트리밍 채널</h2>
+      <div id="personal"></div>
+      <details style="margin-top:12px">
+        <summary>지금 플레이리스트를 방송국으로 저장</summary>
+        <form id="saveShareForm" class="grid2">
+          <div><label>방송국 이름</label><input type="text" name="name" placeholder="예: 운동할 때"></div>
+          <div><label>주소 이름 (영문)</label><input type="text" name="slug" placeholder="예: workout" autocapitalize="off" required></div>
+          <label class="check"><input type="checkbox" name="shuffle"> 셔플</label>
+          <div class="row" style="margin-top:8px"><button class="primary">저장</button></div>
+        </form>
+      </details>
+    </section>
+
+    <!-- stations -->
+    <section class="card">
+      <h2>방송국</h2>
+      <div id="stations"></div>
+      <details style="margin-top:12px">
+        <summary>새 방송국 추가</summary>
+        <form id="addForm">
+          <label>유튜브 플레이리스트 주소</label><input type="url" name="url" placeholder="https://www.youtube.com/playlist?list=..." required>
+          <div class="grid2">
+            <div><label>방송국 이름</label><input type="text" name="name" placeholder="예: 재즈"></div>
+            <div><label>주소 이름 (영문)</label><input type="text" name="slug" placeholder="예: jazz" autocapitalize="off" required></div>
+          </div>
+          <label class="check"><input type="checkbox" name="shuffle"> 셔플</label>
+          <div class="row" style="margin-top:8px"><button class="primary">추가</button></div>
+        </form>
+      </details>
+    </section>
+
+    <!-- shortcut -->
+    <section class="card">
+      <h2>iOS 공유 단축어</h2>
+      <p class="muted">유튜브 앱의 공유 버튼으로 플레이리스트를 보내면 <b>내 스트리밍 채널</b>이 바로 그 플레이리스트로 바뀝니다.</p>
+      <ol>
+        <li>단축어 앱 → <b>+</b> → 이름 <b>RelayRadio로 보내기</b></li>
+        <li>설정(ⓘ)에서 <b>공유 시트에서 보기</b>를 켜고, 받을 입력을 <b>URL</b>과 <b>텍스트</b>로 지정</li>
+        <li><b>URL의 콘텐츠 가져오기</b> 동작 추가
+          <ul>
+            <li>URL: <span class="url" id="shareEndpoint"></span></li>
+            <li>방법: <b>POST</b>, 요청 본문: <b>JSON</b></li>
+            <li><code>url</code> (텍스트) = <b>단축어 입력</b></li>
+            <li><code>token</code> (텍스트) = <span class="url" id="token"></span></li>
+          </ul>
+        </li>
+        <li>(선택) <b>알림 표시</b> 동작을 추가하고 내용에 <b>URL의 콘텐츠</b>를 넣기</li>
+      </ol>
+      <div class="row"><button id="copyToken">토큰 복사</button><button id="copyEndpoint">주소 복사</button><button id="newToken" class="danger">토큰 새로 만들기</button></div>
+    </section>
+
+    <!-- account -->
+    <section class="card">
+      <details>
+        <summary>비밀번호 변경</summary>
+        <form id="pwForm" class="grid2">
+          <div><label>현재 비밀번호</label><input type="password" name="old" autocomplete="current-password" required></div>
+          <div><label>새 비밀번호</label><input type="password" name="new" autocomplete="new-password" required></div>
+          <div class="row" style="margin-top:8px"><button class="primary">변경</button></div>
+        </form>
+      </details>
+    </section>
+
+    <!-- admin -->
+    <section class="card hidden" id="adminView">
+      <h2>관리</h2>
+      <h3 style="font-size:14px;margin:0 0 6px">사용자</h3>
+      <div id="users"></div>
+      <form id="userForm" class="grid2" style="margin-top:8px">
+        <div><label>새 사용자 아이디</label><input type="text" name="username" autocapitalize="off" required></div>
+        <div><label>비밀번호</label><input type="password" name="password" autocomplete="new-password" required></div>
+        <label class="check"><input type="checkbox" name="admin"> 관리자</label>
+        <div class="row" style="margin-top:8px"><button class="primary">사용자 추가</button></div>
+      </form>
+
+      <h3 style="font-size:14px;margin:18px 0 6px">유튜브 로그인 (cookies.txt)</h3>
+      <p class="muted" id="cookieState"></p>
+      <div class="row">
+        <input type="file" id="cookieFile" accept=".txt,text/plain">
+        <button id="uploadCookies">올리기</button>
+        <button id="deleteCookies" class="danger">삭제</button>
+      </div>
+
+      <h3 style="font-size:14px;margin:18px 0 6px">yt-dlp</h3>
+      <div class="row"><span class="muted">버전 <span id="ytdlpVersion"></span></span><button id="updateYtdlp">지금 업데이트</button></div>
+      <pre class="hidden" id="updateOut"></pre>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let state = null;
+
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2500);
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function api(method, path, data) {
+  const opt = { method, headers: {} };
+  if (data !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(data); }
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/login") { showLogin(); throw new Error(j.error || "로그인이 필요합니다."); }
+  if (!r.ok) throw new Error(j.error || `오류 (${r.status})`);
+  return j;
+}
+async function act(fn, okMsg) {
+  try { await fn(); if (okMsg) toast(okMsg); await refresh(); } catch (e) { toast(e.message); }
+}
+function formData(form) {
+  const d = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    d[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  return d;
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("복사했습니다."); }
+  catch { prompt("복사하세요", text); }
+}
+
+function showLogin() { $("#loginView").classList.remove("hidden"); $("#mainView").classList.add("hidden"); $("#who").classList.add("hidden"); }
+
+function stationHTML(s, personal) {
+  const status = s.running
+    ? `<span class="dot on"></span>방송 중 · 청취자 ${s.listeners}명${s.tracks ? ` · ${s.tracks}곡` : ""}`
+    : `<span class="dot"></span>대기 중 (접속하면 재생)`;
+  return `
+  <div class="station" data-slug="${esc(s.slug)}">
+    <div class="row" style="justify-content:space-between">
+      <span class="name">${esc(s.name)}</span>
+      <span class="muted">${status}</span>
+    </div>
+    ${s.now ? `<div class="now">♪ ${esc(s.now)}</div>` : ""}
+    ${s.error ? `<div class="error">${esc(s.error)}</div>` : ""}
+    <div class="muted" style="margin:4px 0">스트림 <span class="url">${esc(s.stream_url)}</span></div>
+    <div class="muted" style="margin:4px 0 8px;word-break:break-all">플레이리스트 ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>` : "없음"}</div>
+    <div class="row">
+      <button data-act="copy">스트림 주소 복사</button>
+      ${s.running ? `<button data-act="skip">다음 곡</button>` : ""}
+      <button data-act="shuffle">${s.shuffle ? "셔플 끄기" : "셔플 켜기"}</button>
+      <button data-act="edit">${personal ? "주소 바꾸기" : "수정"}</button>
+      ${personal ? "" : `<button data-act="delete" class="danger">삭제</button>`}
+    </div>
+  </div>`;
+}
+
+function render() {
+  const s = state;
+  $("#whoName").textContent = s.me.username;
+  $("#personal").innerHTML = stationHTML(s.personal, true);
+  $("#stations").innerHTML = s.stations.length ? s.stations.map(x => stationHTML(x, false)).join("")
+    : `<p class="muted">아직 방송국이 없습니다. 아래에서 추가하거나, 내 스트리밍 채널의 플레이리스트를 저장하세요.</p>`;
+  $("#shareEndpoint").textContent = s.me.share_endpoint;
+  $("#token").textContent = s.me.token;
+  $("#adminView").classList.toggle("hidden", !s.me.admin);
+  if (s.me.admin) {
+    $("#users").innerHTML = s.users.map(u => `
+      <div class="row" style="justify-content:space-between;padding:4px 0">
+        <span>${esc(u.username)} ${u.admin ? '<span class="muted">관리자</span>' : ""}</span>
+        <span class="row">
+          <button data-user="${esc(u.username)}" data-uact="pw">비밀번호 재설정</button>
+          ${u.username !== s.me.username ? `<button data-user="${esc(u.username)}" data-uact="del" class="danger">삭제</button>` : ""}
+        </span>
+      </div>`).join("");
+    $("#cookieState").textContent = s.cookies ? "쿠키 파일이 올라가 있습니다. 비공개 플레이리스트도 재생됩니다." : "쿠키 없음 (공개 플레이리스트만 재생됩니다).";
+    $("#ytdlpVersion").textContent = s.ytdlp_version || "?";
+  }
+}
+
+async function refresh() {
+  try {
+    state = await api("GET", "/api/state");
+    $("#loginView").classList.add("hidden"); $("#mainView").classList.remove("hidden"); $("#who").classList.remove("hidden");
+    render();
+  } catch (e) { /* showLogin already called on 401 */ }
+}
+
+function findStation(slug) {
+  return state.personal.slug === slug ? state.personal : state.stations.find(s => s.slug === slug);
+}
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-act]");
+  if (b) {
+    const slug = b.closest(".station").dataset.slug;
+    const s = findStation(slug);
+    const path = `/api/stations/${encodeURIComponent(slug)}`;
+    switch (b.dataset.act) {
+      case "copy": return copy(s.stream_url);
+      case "skip": return act(() => api("POST", path + "/skip"), "다음 곡으로 넘어갑니다.");
+      case "shuffle": return act(() => api("PUT", path, { shuffle: !s.shuffle }), s.shuffle ? "셔플을 껐습니다." : "셔플을 켰습니다.");
+      case "edit": {
+        const url = prompt("플레이리스트 주소", s.url); if (url === null) return;
+        const data = { url };
+        if (!s.personal) { const name = prompt("방송국 이름", s.name); if (name === null) return; data.name = name; }
+        return act(() => api("PUT", path, data), "저장했습니다.");
+      }
+      case "delete":
+        if (!confirm(`'${s.name}' 방송국을 삭제할까요?`)) return;
+        return act(() => api("DELETE", path), "삭제했습니다.");
+    }
+  }
+  const u = ev.target.closest("button[data-uact]");
+  if (u) {
+    const name = u.dataset.user;
+    if (u.dataset.uact === "pw") {
+      const pw = prompt(`${name}의 새 비밀번호`); if (!pw) return;
+      return act(() => api("POST", `/api/users/${encodeURIComponent(name)}/password`, { password: pw }), "비밀번호를 바꿨습니다.");
+    }
+    if (u.dataset.uact === "del" && confirm(`사용자 ${name}을(를) 삭제할까요?`))
+      return act(() => api("DELETE", `/api/users/${encodeURIComponent(name)}`), "삭제했습니다.");
+  }
+});
+
+$("#loginForm").addEventListener("submit", (e) => { e.preventDefault(); act(() => api("POST", "/api/login", formData(e.target))); });
+$("#logoutBtn").addEventListener("click", async () => { await api("POST", "/api/logout"); showLogin(); });
+$("#addForm").addEventListener("submit", (e) => { e.preventDefault(); act(async () => { await api("POST", "/api/stations", formData(e.target)); e.target.reset(); }, "방송국을 추가했습니다."); });
+$("#saveShareForm").addEventListener("submit", (e) => { e.preventDefault(); act(async () => { await api("POST", "/api/me/save-share", formData(e.target)); e.target.reset(); }, "방송국으로 저장했습니다."); });
+$("#pwForm").addEventListener("submit", (e) => { e.preventDefault(); act(async () => { await api("POST", "/api/me/password", formData(e.target)); e.target.reset(); }, "비밀번호를 바꿨습니다."); });
+$("#userForm").addEventListener("submit", (e) => { e.preventDefault(); act(async () => { await api("POST", "/api/users", formData(e.target)); e.target.reset(); }, "사용자를 추가했습니다."); });
+$("#copyToken").addEventListener("click", () => copy(state.me.token));
+$("#copyEndpoint").addEventListener("click", () => copy(state.me.share_endpoint));
+$("#newToken").addEventListener("click", () => {
+  if (confirm("토큰을 새로 만들면 기존 단축어의 토큰도 바꿔야 합니다. 계속할까요?"))
+    act(() => api("POST", "/api/me/token"), "새 토큰을 만들었습니다.");
+});
+$("#uploadCookies").addEventListener("click", () => {
+  const f = $("#cookieFile").files[0]; if (!f) return toast("파일을 고르세요.");
+  act(async () => { const fd = new FormData(); fd.append("file", f);
+    const r = await fetch("/api/cookies", { method: "POST", body: fd }); const j = await r.json();
+    if (!r.ok) throw new Error(j.error); }, "쿠키를 올렸습니다.");
+});
+$("#deleteCookies").addEventListener("click", () => { if (confirm("쿠키 파일을 삭제할까요?")) act(() => api("DELETE", "/api/cookies"), "삭제했습니다."); });
+$("#updateYtdlp").addEventListener("click", async (e) => {
+  e.target.disabled = true; toast("업데이트 중… (1분쯤 걸릴 수 있습니다)");
+  try { const j = await api("POST", "/api/ytdlp/update"); $("#updateOut").textContent = j.output; $("#updateOut").classList.remove("hidden");
+        toast(j.ok ? `yt-dlp ${j.version}` : "업데이트 실패"); await refresh(); }
+  catch (err) { toast(err.message); }
+  e.target.disabled = false;
+});
+
+refresh();
+setInterval(() => { if (!document.hidden && state && !$("#mainView").classList.contains("hidden")) refresh(); }, 5000);
+</script>
+</body>
+</html>
