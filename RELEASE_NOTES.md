@@ -1,11 +1,11 @@
-## RelayRadio v0.1
+## RelayRadio v0.1.1
 
-First release.
+Bug fixes for shared playlists.
 
-- Turns YouTube playlists into on-demand MP3 radio stations (`/<name>.mp3`) for Synology Audio Station and DS audio.
-- Real-time conversion with yt-dlp and ffmpeg. Nothing is written to disk.
-- Stations run only while someone is listening, and every listener on a station hears the same stream.
-- Each user has a personal `streaming-<username>.mp3` channel that the iOS Share shortcut switches.
-- Web UI with multiple users, admin user management, `cookies.txt` upload, and yt-dlp updates.
-- Resume, shuffle, skip, and song titles via ICY metadata.
-- Docker image (Python 3.12, ffmpeg, Deno) and docker-compose file for Synology Container Manager.
+- **Fixed**: YouTube mix links (`list=RD…`) failed with "This playlist type is unviewable". Mixes now load as `watch?v=…&list=RD…`, 100 songs per round.
+- **Changed**: sharing a single video plays the YouTube mix that starts with it, instead of repeating that one song.
+- **Fixed**: a song that appears more than once in a playlist plays only once per round.
+- **Fixed**: the repository now contains an empty `data/` folder, so the Synology Container Manager build no longer fails with a missing folder.
+- **Docs**: the README explains the required `data/` folder and how mixes and single videos play. `ROADMAP.md` lists the next goals.
+
+To update, replace the files on the NAS and press **Build** on the project in Container Manager. The app code is built into the image, so a restart alone is not enough.

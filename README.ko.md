@@ -27,7 +27,7 @@ RelayRadio는 **내가 고른 유튜브 플레이리스트를 집의 NAS에서 �
 
 ## 설치 (시놀로지 Container Manager)
 
-1. **File Station**에서 `docker/relayradio` 폴더를 만들고, 이 저장소의 파일을 모두 올립니다(`Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/` 등).
+1. **File Station**에서 `docker/relayradio` 폴더를 만들고, 이 저장소의 파일을 모두 올립니다(`Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/` 등). 그 안에 **`data` 폴더가 있어야 합니다.** 없으면 직접 만드세요. Container Manager는 없는 폴더를 연결하지 못하고 빌드 오류를 냅니다.
 2. `docker-compose.yml`의 `ADMIN_PASSWORD`를 원하는 비밀번호로 바꿉니다. 첫 실행 때만 쓰입니다.
 3. **Container Manager → 프로젝트 → 생성**
    - 프로젝트 이름: `relayradio`
@@ -43,6 +43,9 @@ RelayRadio는 **내가 고른 유튜브 플레이리스트를 집의 NAS에서 �
 ### 방송국 만들기
 웹 화면의 **새 방송국 추가**에 플레이리스트 주소, 이름, 영문 주소 이름(예: `jazz`)을 넣습니다. 다음 형식의 주소를 모두 쓸 수 있습니다.
 `youtube.com/playlist?list=…`, `youtube.com/watch?v=…&list=…`, `youtu.be/…`, `music.youtube.com/playlist?list=…`
+
+- **유튜브 믹스**(`list=RD…`)는 끝이 없는 목록이라 한 번에 100곡씩 불러옵니다. 100곡을 다 들으면 믹스를 새로 불러옵니다.
+- **영상 하나만 공유하면** 그 영상으로 시작하는 유튜브 믹스를 재생합니다. 한 곡만 반복되지 않고, 라디오처럼 비슷한 곡이 이어집니다.
 
 ### DS audio에서 듣기
 1. **Audio Station → 라디오 → 사용자 정의**에서 라디오 방송국을 추가합니다.

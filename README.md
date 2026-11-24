@@ -27,7 +27,7 @@ RelayRadio is a small server that **turns YouTube playlists you choose into inte
 
 ## Installation (Synology Container Manager)
 
-1. In **File Station**, create `docker/relayradio` and upload every file from this repository (`Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/`, …).
+1. In **File Station**, create `docker/relayradio` and upload every file from this repository (`Dockerfile`, `docker-compose.yml`, `requirements.txt`, `app/`, …). **A `data` folder must exist inside it.** Create it if it is missing, because Container Manager cannot mount a folder that does not exist and the build fails.
 2. Set `ADMIN_PASSWORD` in `docker-compose.yml`. It is only used on the first start.
 3. **Container Manager → Project → Create**
    - Project name: `relayradio`
@@ -43,6 +43,9 @@ Data (users, stations, cookies) lives in `docker/relayradio/data`.
 ### Create a station
 Under **새 방송국 추가** (Add station), enter a playlist URL, a name, and a short URL name such as `jazz`. All of these URL forms work:
 `youtube.com/playlist?list=…`, `youtube.com/watch?v=…&list=…`, `youtu.be/…`, `music.youtube.com/playlist?list=…`
+
+- **YouTube mixes** (`list=RD…`) never end, so they are loaded 100 songs at a time. After those 100 songs, the mix is loaded again.
+- **Sharing a single video** plays the YouTube mix that starts with that video. You hear related songs, like a radio station, instead of one song on repeat.
 
 ### Listen in DS audio
 1. In **Audio Station → Radio → User defined**, add a radio station.

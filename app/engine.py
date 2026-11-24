@@ -12,8 +12,10 @@ import json
 import logging
 import os
 import random
+import re
 import subprocess
 import sys
+import urllib.parse
 
 log = logging.getLogger("relayradio")
 
@@ -27,6 +29,7 @@ ICY_METAINT = 16000
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 YTDLP = [sys.executable, "-m", "yt_dlp"]
 READ_CHUNK = 16384
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 MP3_ARGS = [
     "-vn", "-map_metadata", "-1",
@@ -63,10 +66,44 @@ async def _drain(stream, keep: collections.deque):
         keep.append(line.decode(errors="replace").rstrip())
 
 
+MIX_LIMIT = 100  # YouTube mixes are endless; take this many songs per round
+
+
+def resolve_source(url: str):
+    """Turn a shared URL into something yt-dlp can list as a playlist.
+
+    - Mixes (list=RD...) only open as watch?v=<id>&list=RD..., never as playlist?list=RD...
+    - A single video becomes its YouTube mix, so the radio keeps playing related songs
+      instead of repeating one track.
+    Returns (url, is_mix).
+    """
+    parts = urllib.parse.urlsplit(url.strip())
+    host = (parts.hostname or "").lower()
+    query = urllib.parse.parse_qs(parts.query)
+    video = (query.get("v") or [""])[0]
+    playlist = (query.get("list") or [""])[0]
+    if host == "youtu.be":
+        video = parts.path.strip("/").split("/")[0]
+    elif "/shorts/" in parts.path or "/live/" in parts.path:
+        video = parts.path.rstrip("/").split("/")[-1]
+    if not host.endswith(("youtube.com", "youtu.be")):
+        return url, False
+    if playlist.startswith("RD") and not playlist.startswith("RDCLAK"):
+        video = video or playlist[-11:]
+        return f"https://www.youtube.com/watch?v={video}&list={playlist}", True
+    if playlist:
+        return f"https://www.youtube.com/playlist?list={playlist}", False
+    if VIDEO_ID_RE.match(video):
+        return f"https://www.youtube.com/watch?v={video}&list=RD{video}", True
+    return url, False
+
+
 async def load_playlist(url: str, cookies_path: str):
-    """Return [{'id', 'title'}] for a playlist, a video, or a video-in-playlist URL."""
+    """Return [{'id', 'title'}] for a playlist, a mix, or a single video (played as its mix)."""
+    source, is_mix = resolve_source(url)
+    limit = ["--playlist-end", str(MIX_LIMIT)] if is_mix else []
     proc = await asyncio.create_subprocess_exec(
-        *YTDLP, *ytdlp_base_args(cookies_path), "--flat-playlist", "-J", url,
+        *YTDLP, *ytdlp_base_args(cookies_path), "--flat-playlist", *limit, "-J", source,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
     try:
@@ -78,10 +115,11 @@ async def load_playlist(url: str, cookies_path: str):
         raise RuntimeError(err.decode(errors="replace").strip()[-500:] or "yt-dlp 오류")
     data = json.loads(out)
     items = data.get("entries") if data.get("_type") == "playlist" else [data]
-    result = []
+    result, seen = [], set()
     for e in items or []:
-        if not e or not e.get("id"):
+        if not e or not e.get("id") or e["id"] in seen:
             continue
+        seen.add(e["id"])
         title = e.get("title") or e["id"]
         if title in ("[Private video]", "[Deleted video]"):
             continue
